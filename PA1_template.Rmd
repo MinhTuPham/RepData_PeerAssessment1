@@ -6,20 +6,235 @@ output:
 ---
 
 
-## Loading and preprocessing the data
+### Loading and preprocessing the data
 
+```{r}
+data <- read.csv("activity.csv")
+summary(data)
+```
 
+### What is mean total number of steps taken per day?
 
-## What is mean total number of steps taken per day?
+1. Remove rows with NA from the data
 
+```{r}
+pos <- is.na(data[,1]) # Find NA objects
+data1 <- data[!pos,] # creat data without NA values
+summary(data1)
+```
 
+2. Calculate the total number of steps taken per day
 
-## What is the average daily activity pattern?
+```{r}
+dates <-unique(data1[,2])  # Find dates
+ttstep <- integer() # Vector contains total number of steps per day
+for (d in 1:length(dates)) {
+        ttstep[d] <- sum(data1[data1$date %in% dates[d],1])
+}
+ttstep <- data.frame(ttstep, dates)
+summary(ttstep)
+```
 
+3. A histogram of the total number of steps taken each day
 
+```{r}
+library(ggplot2)
+qplot(ttstep$ttstep,
+      geom="histogram",
+      bins = 10,  
+      main = "Histogram for total number of steps taken each day", 
+      xlab = "Total number of steps")
+```
 
-## Imputing missing values
+4. Calculate the mean and median of the total number of steps taken per day
 
+```{r}
+meanstep <- round(mean(ttstep$ttstep),2)
+medianstep <- median(ttstep$ttstep)
+```
 
+The mean and median of the total number of steps taken per day are `r sprintf("%.2f", mean(ttstep$ttstep))` and `r medianstep`, respectively.
 
-## Are there differences in activity patterns between weekdays and weekends?
+### What is the average daily activity pattern?
+
+1. Make a time series plot (i.e. 𝚝𝚢𝚙𝚎 = "𝚕") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+
+```{r}
+ti <-unique(data1[,3])  # Find time intrerval (ti)
+tistep <- integer() # Vector contains average number of steps of 5-minute interval
+for (d in 1:length(ti)) {
+        tistep[d] <- mean(data1[data1$interval %in% ti[d],1])
+}
+ts <- data.frame(ti, tistep)
+library(ggplot2)
+qplot(ti, tistep, data=ts,
+      geom="line",
+      main = "Average steps taken per 5-minute interval", 
+      xlab = "5-minute interval",
+      ylab = "Number of steps")
+```
+
+2. Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+```{r}
+maxint <- ts[ts$tistep %in% max(ts$tistep),1]
+```
+
+On average across all the days in the dataset, the time inveral `r maxint` contains the maximum number of steps.
+
+### Imputing missing values
+
+Note that there are a number of days/intervals where there are missing values (coded as 𝙽𝙰). The presence of missing days may introduce bias into some calculations or summaries of the data.
+
+1. Calculate and report the total number of missing values in the dataset.
+
+```{r}
+pos <- is.na(data[,1]) # Find NA objects
+nms <- length(pos) # number of missing values
+```
+
+Total number of missing values is `r nms`.
+
+2. Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
+
+Find the number of missing values per day
+
+```{r}
+dates <-unique(data[,2])  # Find dates
+nms <- integer() # Vector contains total number of missing values per day
+for (d in 1:length(dates)) {
+        subdata <- data[data$date %in% dates[d],1] # data for each day
+        nms[d] <- length(subdata[is.na(subdata)])
+}
+ttms <- data.frame(nms, dates)
+summary(ttms)
+```
+
+From the results, it can be seen that there are 8 days without data (missing values all the day). They are `r ttms[c(1, 8, 32, 35, 40, 41, 45, 61),2]`.
+
+To fill the missing values of these 8 missing date, take the data from other dates. The chosen date (without missing data) is chosen randomly.
+
+3. Create a new dataset that is equal to the original dataset but with the missing data filled in.
+
+Reshape the data to easy process. Create a matrix where the rows indicate the 5-minute interval and the column indicate the date. In other words, each column contain data of one date.
+
+```{r}
+st <- data$steps
+redata <- matrix(st, length(st)/length(dates), length(dates))
+head(redata)
+```
+
+Chose random dates, then copy the data to the missing-data dates.
+
+```{r}
+md <- c(1, 8, 32, 35, 40, 41, 45, 61) # column with missing-data dates
+a <- c(1:61)
+ad <- a [! a %in% md] # column with dates has data
+for (k in 1:length(md)) {
+        # select random date 
+        srd <- sample(ad,1)
+        redata[,md[k]] <- redata[,srd]
+}
+# reshape data to the original form
+steps <- matrix(redata, 288*61,1)
+data2 <- data.frame(steps, data[,c(2,3)])
+head(data2)
+summary(data2)
+```
+
+4. Make a histogram of the total number of steps taken each day. Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+Make a histogram of the total number of steps taken each day.
+
+```{r}
+dates2 <-unique(data2[,2])  # Find dates
+ttstep2 <- integer() # Vector contains total number of steps per day
+for (d in 1:length(dates2)) {
+        ttstep2[d] <- sum(data2[data2$date %in% dates2[d],1])
+}
+ttstep2 <- data.frame(ttstep2, dates2)
+library(ggplot2)
+qplot(ttstep2$ttstep2,
+      geom="histogram",
+      bins = 10,  
+      main = "Histogram for total number of steps taken each day", 
+      xlab = "Total number of steps")
+```
+
+Calculate the mean and median total number of steps taken per day.
+
+```{r}
+meanstep2 <- round(mean(ttstep2$ttstep2),2)
+medianstep2 <- median(ttstep2$ttstep2)
+```
+
+The mean and median of the total number of steps taken per day are `r sprintf("%.2f", mean(ttstep2$ttstep2))` and `r medianstep2`, respectively.
+
+These values differ from the estimates from the first part of the assignment. Imputing missing data has decreased the values on the estimates of the total daily number of steps. For example, the mean total number of steps taken per day is `r sprintf("%.2f", mean(ttstep2$ttstep2))` compared to that of the previous exercise `r sprintf("%.2f", mean(ttstep$ttstep))`.
+
+### Are there differences in activity patterns between weekdays and weekends?
+
+1. Create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.
+
+```{r}
+data2[,2] <- as.Date(data2[,2]) # Convert data2$date from factor class to date class
+daytype <- weekdays(data2[,2])
+data2 <- data.frame(data2, daytype) # add day to the data frame
+head(data2)
+```
+
+Create a new factor variable in the dataset with two levels – “weekday” and “weekend”.
+
+```{r}
+weekends <- c("Saturday","Sunday")
+wd <- as.character() # vector contain variable “weekday” and “weekend”
+for (i in 1:nrow(data2)) {
+        if (data2[i,4] %in% weekends) {
+                wd[i] <- c("weekend")}
+        else {wd[i] <- c("weekday")}
+}
+data2 <- data.frame(data2[,c(1,2,3)], wd)
+head(data2)
+```
+
+2. Make a panel plot containing a time series plot (i.e. 𝚝𝚢𝚙𝚎 = "𝚕") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). 
+
+Calculate the average number of steps taken per 5-minute interval for weekday days
+```{r}
+WDdata <- data2[data2$wd %in% "weekday",]
+ti <-unique(WDdata[,3])  # Find time intrerval (ti)
+tistepWD <- integer() # Vector contains average number of steps of 5-minute interval
+for (d in 1:length(ti)) {
+        tistepWD[d] <- mean(WDdata[WDdata$interval %in% ti[d],1])
+}
+tsWD <- data.frame(ti, tistepWD)
+```
+
+Calculate the average number of steps taken per 5-minute interval for weekend
+```{r}
+WKdata <- data2[data2$wd %in% "weekend",]
+tistepWK <- integer() # Vector contains average number of steps of 5-minute interval
+for (d in 1:length(ti)) {
+        tistepWK[d] <- mean(WKdata[WKdata$interval %in% ti[d],1])
+}
+tsWK <- data.frame(ti, tistepWK)
+```
+
+Make a panel plot
+
+```{r}
+# install.packages("cowplot")
+library(cowplot)
+library(ggplot2)
+p1 <- qplot(ti, tistepWD, data=tsWD,
+      geom="line",
+      main = "Weekday", 
+      xlab = "Interval",
+      ylab = "Number of steps")
+p2 <- qplot(ti, tistepWK, data=tsWK,
+      geom="line",
+      main = "Weekend", 
+      xlab = "Interval",
+      ylab = "Number of steps")
+plot_grid(p1, p2, ncol=1)
+```
